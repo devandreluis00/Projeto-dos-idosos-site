@@ -1,0 +1,321 @@
+/* css/style.css */
+
+:root {
+  --azul-escuro: #1b3a5c;
+  --azul-claro: #2f6690;
+  --verde-online: #2e7d32;
+  --cinza-offline: #8a8a8a;
+  --fundo: #f5f7f9;
+  --branco: #ffffff;
+  --texto: #1a1a1a;
+  --vermelho: #b3261e;
+  --borda: #c9d3db;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 20px;
+  color: var(--texto);
+  background: var(--fundo);
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 4px solid var(--azul-claro);
+  outline-offset: 2px;
+}
+
+/* ---------- TELA INICIAL ---------- */
+
+.tela-entrada {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.cartao-entrada {
+  background: var(--branco);
+  border-radius: 16px;
+  padding: 48px 32px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.cartao-entrada h1 {
+  font-size: 2.4rem;
+  color: var(--azul-escuro);
+  margin: 0 0 8px;
+}
+
+.subtitulo {
+  font-size: 1.4rem;
+  margin: 0 0 24px;
+}
+
+.instrucao {
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+}
+
+#campo-nome {
+  width: 100%;
+  font-size: 1.4rem;
+  padding: 16px;
+  border: 3px solid var(--borda);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+#botao-entrar {
+  width: 100%;
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--azul-escuro);
+  color: var(--branco);
+}
+
+#botao-entrar:hover {
+  background: var(--azul-claro);
+}
+
+#botao-entrar:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.mensagem-erro {
+  color: var(--vermelho);
+  font-size: 1.1rem;
+  margin-top: 16px;
+  min-height: 1.5em;
+}
+
+/* ---------- TELA PRINCIPAL ---------- */
+
+.tela-principal {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topo {
+  background: var(--azul-escuro);
+  color: var(--branco);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topo h1 {
+  font-size: 1.6rem;
+  margin: 0;
+}
+
+.botao-sair {
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  background: var(--vermelho);
+  color: var(--branco);
+}
+
+.botao-sair:hover {
+  background: #8f1f19;
+}
+
+.conteudo {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.painel-participantes {
+  width: 320px;
+  min-width: 260px;
+  background: var(--branco);
+  border-right: 2px solid var(--borda);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.painel-participantes h2 {
+  font-size: 1.3rem;
+  margin-top: 0;
+}
+
+.lista-participantes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item-participante {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  font-size: 1.2rem;
+  text-align: left;
+  border: 2px solid var(--borda);
+  border-radius: 10px;
+  background: var(--fundo);
+}
+
+.item-participante:hover {
+  background: #e7edf2;
+}
+
+.item-participante.selecionado {
+  border-color: var(--azul-escuro);
+  background: #e2ebf3;
+}
+
+.bolinha {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bolinha.online {
+  background: var(--verde-online);
+}
+
+.bolinha.offline {
+  background: var(--cinza-offline);
+}
+
+.aviso-vazio {
+  font-size: 1.1rem;
+  color: #555;
+}
+
+.painel-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  min-width: 0;
+}
+
+.aviso-selecione {
+  font-size: 1.3rem;
+  color: #555;
+  margin: auto;
+  text-align: center;
+}
+
+.area-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.area-chat h2 {
+  font-size: 1.4rem;
+  margin-top: 0;
+}
+
+.mensagens {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 4px;
+}
+
+.mensagem {
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.mensagem .autor-mensagem {
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.mensagem.minha {
+  align-self: flex-end;
+  background: var(--azul-claro);
+  color: var(--branco);
+}
+
+.mensagem.outra {
+  align-self: flex-start;
+  background: var(--branco);
+  border: 2px solid var(--borda);
+}
+
+.form-envio {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.form-envio input {
+  flex: 1;
+  font-size: 1.2rem;
+  padding: 16px;
+  border: 3px solid var(--borda);
+  border-radius: 10px;
+}
+
+.form-envio button {
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 0 28px;
+  border: none;
+  border-radius: 10px;
+  background: var(--azul-escuro);
+  color: var(--branco);
+}
+
+.form-envio button:hover {
+  background: var(--azul-claro);
+}
+
+/* ---------- RESPONSIVO (CELULAR) ---------- */
+
+@media (max-width: 720px) {
+  .conteudo {
+    flex-direction: column;
+  }
+
+  .painel-participantes {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid var(--borda);
+    max-height: 220px;
+  }
+
+  .mensagem {
+    max-width: 88%;
+  }
+}

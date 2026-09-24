@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chat da Turma</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="tela-entrada">
+    <div class="cartao-entrada">
+      <h1>CHAT DA TURMA</h1>
+      <p class="subtitulo">Bem-vindo!</p>
+      <p class="instrucao">Digite seu nome para entrar:</p>
+
+      <form id="form-entrada">
+        <input
+          type="text"
+          id="campo-nome"
+          placeholder="Seu nome"
+          autocomplete="off"
+          maxlength="40"
+          required
+        />
+        <button type="submit" id="botao-entrar">ENTRAR NO CHAT</button>
+      </form>
+
+      <p id="mensagem-erro" class="mensagem-erro" role="alert"></p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { entrarNoChat } from "./auth.js";
+
+    const form = document.getElementById("form-entrada");
+    const campoNome = document.getElementById("campo-nome");
+    const botaoEntrar = document.getElementById("botao-entrar");
+    const mensagemErro = document.getElementById("mensagem-erro");
+
+    form.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      mensagemErro.textContent = "";
+      botaoEntrar.disabled = true;
+      botaoEntrar.textContent = "ENTRANDO...";
+
+      try {
+        await entrarNoChat(campoNome.value);
+        window.location.href = "app.html";
+      } catch (erro) {
+        console.error(erro);
+        mensagemErro.textContent =
+          "Não foi possível entrar. Verifique sua internet e tente novamente.";
+        botaoEntrar.disabled = false;
+        botaoEntrar.textContent = "ENTRAR NO CHAT";
+      }
+    });
+  </script>
+</body>
+</html>
