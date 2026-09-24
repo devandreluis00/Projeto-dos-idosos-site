@@ -22,6 +22,7 @@ const indicadorDigitandoEl = document.getElementById("indicador-digitando");
 const textoDigitandoEl = document.getElementById("texto-digitando");
 const avatarContatoEl = document.getElementById("avatar-contato");
 const statusContatoEl = document.getElementById("status-contato");
+const statusConversaEl = document.getElementById("status-conversa");
 const pesquisaEl = document.getElementById("pesquisa-participantes");
 
 let meuUid = null;
@@ -52,6 +53,14 @@ observarLogin((usuario) => {
 function renderizarParticipantes(lista) {
   const filtro = pesquisaEl.value.trim().toLowerCase();
   listaParticipantesEl.innerHTML = "";
+
+  if (pessoaSelecionada) {
+    const atualizada = lista.find((p) => p.uid === pessoaSelecionada.uid);
+    if (atualizada) {
+      pessoaSelecionada = atualizada;
+      atualizarStatusConversa(atualizada);
+    }
+  }
 
   const filtrada = lista.filter((pessoa) =>
     !filtro || pessoa.name.toLowerCase().includes(filtro)
@@ -138,9 +147,7 @@ async function selecionarConversa(pessoa, elementoClicado) {
   ultimaQuantidadeMensagens = 0;
 
   tituloConversaEl.textContent = pessoa.name;
-  statusContatoEl.textContent = pessoa.online ? "online" : "offline";
-  statusContatoEl.className = `contact-status ${pessoa.online ? "online" : "offline"}`;
-  avatarContatoEl.textContent = iniciais(pessoa.name);
+  atualizarStatusConversa(pessoa);
 
   avisoSelecioneEl.style.display = "none";
   areaChatEl.style.display = "flex";
@@ -273,6 +280,25 @@ pesquisaEl.addEventListener("input", () => {
     item.style.display = item.dataset.nome.includes(filtro) ? "" : "flex";
   });
 });
+
+
+function atualizarStatusConversa(pessoa) {
+  const online = Boolean(pessoa && pessoa.online);
+  const nome = pessoa?.name || "Pessoa";
+
+  statusContatoEl.textContent = online ? "online" : "offline";
+  statusContatoEl.className = `contact-status ${online ? "online" : "offline"}`;
+
+  if (online) {
+    statusConversaEl.textContent = `${nome} está online`;
+    statusConversaEl.className = "conversation-status-banner online";
+    statusConversaEl.hidden = false;
+  } else {
+    statusConversaEl.textContent = `${nome} está offline`;
+    statusConversaEl.className = "conversation-status-banner offline";
+    statusConversaEl.hidden = false;
+  }
+}
 
 function mostrarIndicadorDigitando(nome) {
   if (!nome) {
