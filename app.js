@@ -1,5 +1,4 @@
 // js/app.js
-import { auth } from "./firebase-config.js";
 import { observarLogin, sairDoChat, nomeSalvo } from "./auth.js";
 import { configurarPresenca, observarParticipantes } from "./users.js";
 import {
@@ -17,19 +16,22 @@ const tituloConversaEl = document.getElementById("titulo-conversa");
 const mensagensEl = document.getElementById("mensagens");
 const formEnvioEl = document.getElementById("form-envio");
 const campoMensagemEl = document.getElementById("campo-mensagem");
-const botaoSairEl = document.getElementById("botao-sair");
 const avisoSelecioneEl = document.getElementById("aviso-selecione");
 const areaChatEl = document.getElementById("area-chat");
 const indicadorDigitandoEl = document.getElementById("indicador-digitando");
 const textoDigitandoEl = document.getElementById("texto-digitando");
+const avatarContatoEl = document.getElementById("avatar-contato");
+const statusContatoEl = document.getElementById("status-contato");
+const pesquisaEl = document.getElementById("pesquisa-participantes");
 
 let meuUid = null;
 let meuNome = "";
-let pessoaSelecionada = null; // { uid, name }
+let pessoaSelecionada = null;
 let pararDeObservarMensagens = null;
 let pararDeObservarDigitacao = null;
 let conversaAtualId = null;
 let temporizadorDigitacao = null;
+let ultimaQuantidadeMensagens = 0;
 
 observarLogin((usuario) => {
   if (!usuario) {
@@ -38,35 +40,80 @@ observarLogin((usuario) => {
   }
 
   meuUid = usuario.uid;
-  meuNome = nomeSalvo();
+  meuNome = nomeSalvo() || "Você";
+
+  const avatarMe = document.getElementById("avatar-me");
+  avatarMe.textContent = iniciais(meuNome);
+
   configurarPresenca(meuUid);
   observarParticipantes(meuUid, renderizarParticipantes);
 });
 
 function renderizarParticipantes(lista) {
+  const filtro = pesquisaEl.value.trim().toLowerCase();
   listaParticipantesEl.innerHTML = "";
 
-  if (lista.length === 0) {
-    const vazio = document.createElement("p");
-    vazio.className = "aviso-vazio";
-    vazio.textContent = "Ainda não há mais ninguém na turma.";
+  const filtrada = lista.filter((pessoa) =>
+    !filtro || pessoa.name.toLowerCase().includes(filtro)
+  );
+
+  if (filtrada.length === 0) {
+    const vazio = document.createElement("div");
+    vazio.className = "empty-list";
+    vazio.textContent = filtro
+      ? "Nenhuma conversa encontrada."
+      : "Ainda não há mais ninguém na turma.";
     listaParticipantesEl.appendChild(vazio);
     return;
   }
 
-  lista.forEach((pessoa) => {
+  filtrada.forEach((pessoa) => {
     const item = document.createElement("button");
     item.type = "button";
-    item.className = "item-participante";
+    item.className = "conversation-item";
 
     if (pessoaSelecionada && pessoaSelecionada.uid === pessoa.uid) {
-      item.classList.add("selecionado");
+      item.classList.add("selected");
     }
 
-    item.innerHTML = `
-      <span class="bolinha ${pessoa.online ? "online" : "offline"}"></span>
-      <span class="nome-participante">${escaparTexto(pessoa.name)}</span>
-    `;
+    item.dataset.nome = pessoa.name.toLowerCase();
+
+    const avatar = document.createElement("span");
+    avatar.className = "avatar conversation-avatar";
+    avatar.textContent = iniciais(pessoa.name);
+
+    const content = document.createElement("span");
+    content.className = "conversation-content";
+
+    const top = document.createElement("span");
+    top.className = "conversation-top";
+
+    const nome = document.createElement("strong");
+    nome.textContent = pessoa.name;
+
+    const horario = document.createElement("time");
+    horario.textContent = "";
+
+    top.appendChild(nome);
+    top.appendChild(horario);
+
+    const preview = document.createElement("span");
+    preview.className = "conversation-preview";
+
+    const statusDot = document.createElement("span");
+    statusDot.className = `status-dot ${pessoa.online ? "online" : "offline"}`;
+
+    const previewText = document.createElement("span");
+    previewText.textContent = pessoa.online ? "online" : "offline";
+
+    preview.appendChild(statusDot);
+    preview.appendChild(previewText);
+
+    content.appendChild(top);
+    content.appendChild(preview);
+
+    item.appendChild(avatar);
+    item.appendChild(content);
 
     item.addEventListener("click", (evento) =>
       selecionarConversa(pessoa, evento.currentTarget)
@@ -77,7 +124,6 @@ function renderizarParticipantes(lista) {
 }
 
 async function selecionarConversa(pessoa, elementoClicado) {
-  // Para a indicação de digitação da conversa anterior.
   if (conversaAtualId && meuUid) {
     await pararDigitando(conversaAtualId, meuUid);
   }
@@ -89,27 +135,27 @@ async function selecionarConversa(pessoa, elementoClicado) {
 
   pessoaSelecionada = pessoa;
   conversaAtualId = idDaConversa(meuUid, pessoa.uid);
+  ultimaQuantidadeMensagens = 0;
 
-  tituloConversaEl.textContent = `Conversando com ${pessoa.name}`;
+  tituloConversaEl.textContent = pessoa.name;
+  statusContatoEl.textContent = pessoa.online ? "online" : "offline";
+  statusContatoEl.className = `contact-status ${pessoa.online ? "online" : "offline"}`;
+  avatarContatoEl.textContent = iniciais(pessoa.name);
+
   avisoSelecioneEl.style.display = "none";
   areaChatEl.style.display = "flex";
   esconderIndicadorDigitando();
 
-  document.querySelectorAll(".item-participante").forEach((el) => {
-    el.classList.remove("selecionado");
+  document.querySelectorAll(".conversation-item").forEach((el) => {
+    el.classList.remove("selected");
   });
 
-  if (elementoClicado) elementoClicado.classList.add("selecionado");
+  if (elementoClicado) elementoClicado.classList.add("selected");
 
   await garantirConversa(conversaAtualId, meuUid, pessoa.uid);
 
-  if (pararDeObservarMensagens) {
-    pararDeObservarMensagens();
-  }
-
-  if (pararDeObservarDigitacao) {
-    pararDeObservarDigitacao();
-  }
+  if (pararDeObservarMensagens) pararDeObservarMensagens();
+  if (pararDeObservarDigitacao) pararDeObservarDigitacao();
 
   pararDeObservarMensagens = observarMensagens(
     conversaAtualId,
@@ -131,47 +177,53 @@ function renderizarMensagens(lista) {
   lista.forEach((msg) => {
     const bolha = document.createElement("div");
     const eMinha = msg.senderId === meuUid;
-    bolha.className = `mensagem ${eMinha ? "minha" : "outra"}`;
 
-    const autor = document.createElement("div");
-    autor.className = "autor-mensagem";
-    autor.textContent = eMinha
-      ? "Você"
-      : (pessoaSelecionada ? pessoaSelecionada.name : "");
+    bolha.className = `message ${eMinha ? "mine" : "other"}`;
 
     const texto = document.createElement("div");
-    texto.className = "texto-mensagem";
+    texto.className = "message-text";
     texto.textContent = msg.text;
 
-    bolha.appendChild(autor);
+    const meta = document.createElement("span");
+    meta.className = "message-meta";
+    meta.textContent = formatarHora(msg.createdAt);
+
+    if (eMinha) {
+      const checks = document.createElement("span");
+      checks.className = "message-checks";
+      checks.textContent = "✓✓";
+      meta.appendChild(checks);
+    }
+
     bolha.appendChild(texto);
+    bolha.appendChild(meta);
     mensagensEl.appendChild(bolha);
   });
 
-  // Mantém o scroll sempre no final da conversa.
+  const quantidadeAumentou = lista.length > ultimaQuantidadeMensagens;
+  ultimaQuantidadeMensagens = lista.length;
+
   requestAnimationFrame(() => {
-    mensagensEl.scrollTop = mensagensEl.scrollHeight;
+    // Mensagens novas sempre deixam a conversa no fim.
+    // Ao abrir a conversa também começamos no fim.
+    if (quantidadeAumentou || lista.length > 0) {
+      mensagensEl.scrollTop = mensagensEl.scrollHeight;
+    }
   });
 }
 
 campoMensagemEl.addEventListener("input", async () => {
   if (!pessoaSelecionada || !conversaAtualId) return;
 
-  const temTexto = campoMensagemEl.value.trim().length > 0;
-
-  if (!temTexto) {
+  if (!campoMensagemEl.value.trim()) {
     await pararDigitando(conversaAtualId, meuUid);
     return;
   }
 
   await definirDigitando(conversaAtualId, meuUid, meuNome);
 
-  if (temporizadorDigitacao) {
-    clearTimeout(temporizadorDigitacao);
-  }
+  clearTimeout(temporizadorDigitacao);
 
-  // Se a pessoa parar de digitar por 1,5 segundo,
-  // o indicador desaparece para o outro usuário.
   temporizadorDigitacao = setTimeout(async () => {
     if (conversaAtualId && meuUid) {
       await pararDigitando(conversaAtualId, meuUid);
@@ -182,8 +234,6 @@ campoMensagemEl.addEventListener("input", async () => {
 campoMensagemEl.addEventListener("blur", async () => {
   if (!pessoaSelecionada || !conversaAtualId) return;
 
-  // Não remove imediatamente se ainda houver texto:
-  // o temporizador controla o desaparecimento natural.
   if (!campoMensagemEl.value.trim()) {
     await pararDigitando(conversaAtualId, meuUid);
   }
@@ -191,6 +241,7 @@ campoMensagemEl.addEventListener("blur", async () => {
 
 formEnvioEl.addEventListener("submit", async (evento) => {
   evento.preventDefault();
+
   if (!pessoaSelecionada || !conversaAtualId) return;
 
   const texto = campoMensagemEl.value.trim();
@@ -198,10 +249,8 @@ formEnvioEl.addEventListener("submit", async (evento) => {
 
   campoMensagemEl.value = "";
 
-  if (temporizadorDigitacao) {
-    clearTimeout(temporizadorDigitacao);
-    temporizadorDigitacao = null;
-  }
+  clearTimeout(temporizadorDigitacao);
+  temporizadorDigitacao = null;
 
   await pararDigitando(conversaAtualId, meuUid);
 
@@ -215,13 +264,14 @@ formEnvioEl.addEventListener("submit", async (evento) => {
   campoMensagemEl.focus();
 });
 
-botaoSairEl.addEventListener("click", async () => {
-  if (conversaAtualId && meuUid) {
-    await pararDigitando(conversaAtualId, meuUid);
-  }
+pesquisaEl.addEventListener("input", () => {
+  // A lista completa será atualizada pelo listener de presença.
+  // Filtramos diretamente os itens já renderizados quando possível.
+  const filtro = pesquisaEl.value.trim().toLowerCase();
 
-  await sairDoChat();
-  window.location.href = "index.html";
+  document.querySelectorAll(".conversation-item").forEach((item) => {
+    item.style.display = item.dataset.nome.includes(filtro) ? "" : "flex";
+  });
 });
 
 function mostrarIndicadorDigitando(nome) {
@@ -238,8 +288,20 @@ function esconderIndicadorDigitando() {
   indicadorDigitandoEl.hidden = true;
 }
 
-function escaparTexto(texto) {
-  const div = document.createElement("div");
-  div.textContent = texto;
-  return div.innerHTML;
+function iniciais(nome) {
+  const partes = (nome || "?").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function formatarHora(timestamp) {
+  if (!timestamp) return "";
+  const data = new Date(timestamp);
+  if (Number.isNaN(data.getTime())) return "";
+
+  return data.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

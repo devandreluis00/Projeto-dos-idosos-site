@@ -7,48 +7,86 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="tela-principal">
-    <header class="topo">
-      <h1>CHAT DA TURMA</h1>
-      <button id="botao-sair" class="botao-sair" type="button">SAIR</button>
-    </header>
-
-    <div class="conteudo">
-      <aside class="painel-participantes">
-        <h2>Quem está na turma?</h2>
-        <div id="lista-participantes" class="lista-participantes"></div>
-      </aside>
-
-      <section class="painel-chat">
-        <p id="aviso-selecione" class="aviso-selecione">
-          Escolha uma pessoa na lista ao lado para conversar.
-        </p>
-
-        <div id="area-chat" class="area-chat" style="display: none">
-          <h2 id="titulo-conversa">Conversando com...</h2>
-          <div id="indicador-digitando" class="indicador-digitando" aria-live="polite" hidden>
-            <span class="ponto-digitando"></span>
-            <span class="ponto-digitando"></span>
-            <span class="ponto-digitando"></span>
-            <span id="texto-digitando">Está digitando...</span>
-          </div>
-          <div id="mensagens" class="mensagens"></div>
-
-          <form id="form-envio" class="form-envio">
-            <input
-              type="text"
-              id="campo-mensagem"
-              placeholder="Digite sua mensagem..."
-              autocomplete="off"
-              maxlength="500"
-              required
-            />
-            <button type="submit">ENVIAR</button>
-          </form>
+  <main class="whatsapp-app">
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <div class="me-profile">
+          <div class="avatar avatar-me" id="avatar-me">EU</div>
+          <span class="profile-name">Conversas</span>
         </div>
-      </section>
-    </div>
-  </div>
+
+        <div class="header-actions">
+          <button class="icon-button" type="button" title="Nova conversa" aria-label="Nova conversa">＋</button>
+          <button class="icon-button" type="button" title="Mais opções" aria-label="Mais opções">⋮</button>
+        </div>
+      </header>
+
+      <div class="search-area">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input id="pesquisa-participantes" type="search"
+                 placeholder="Pesquisar ou começar uma nova conversa"
+                 autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="filters">
+        <button class="filter active" type="button">Tudo</button>
+        <button class="filter" type="button">Não lidas</button>
+        <button class="filter" type="button">Favoritas</button>
+      </div>
+
+      <div id="lista-participantes" class="conversation-list"></div>
+    </aside>
+
+    <section class="chat-panel">
+      <div id="aviso-selecione" class="empty-chat">
+        <div class="empty-chat-icon">💬</div>
+        <h2>Chat da Turma</h2>
+        <p>Selecione uma conversa para começar a conversar.</p>
+      </div>
+
+      <div id="area-chat" class="chat-area" style="display: none">
+        <header class="chat-header">
+          <div class="chat-contact">
+            <div class="avatar" id="avatar-contato">?</div>
+            <div class="contact-info">
+              <h2 id="titulo-conversa">Conversando com...</h2>
+              <span id="status-contato" class="contact-status">online</span>
+            </div>
+          </div>
+
+          <div class="header-actions chat-actions">
+            <button class="icon-button" type="button" title="Pesquisar" aria-label="Pesquisar">⌕</button>
+            <button class="icon-button" type="button" title="Mais opções" aria-label="Mais opções">⋮</button>
+          </div>
+        </header>
+
+        <div id="mensagens" class="messages"></div>
+
+        <div id="indicador-digitando" class="typing-indicator" aria-live="polite" hidden>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span id="texto-digitando">Está digitando...</span>
+        </div>
+
+        <form id="form-envio" class="message-form">
+          <button class="composer-button" type="button" title="Emoji" aria-label="Emoji">☺</button>
+          <button class="composer-button" type="button" title="Anexar" aria-label="Anexar">＋</button>
+          <input
+            type="text"
+            id="campo-mensagem"
+            placeholder="Digite uma mensagem"
+            autocomplete="off"
+            maxlength="500"
+            required
+          />
+          <button class="send-button" type="submit" title="Enviar" aria-label="Enviar">➤</button>
+        </form>
+      </div>
+    </section>
+  </main>
 
   <script type="module" src="app.js"></script>
 </body>
