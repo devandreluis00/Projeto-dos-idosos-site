@@ -110,9 +110,11 @@ input:focus-visible {
 /* ---------- TELA PRINCIPAL ---------- */
 
 .tela-principal {
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .topo {
@@ -144,9 +146,10 @@ input:focus-visible {
 }
 
 .conteudo {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   min-height: 0;
+  overflow: hidden;
 }
 
 .painel-participantes {
@@ -211,11 +214,13 @@ input:focus-visible {
 }
 
 .painel-chat {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   padding: 20px;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .aviso-selecione {
@@ -226,10 +231,11 @@ input:focus-visible {
 }
 
 .area-chat {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .area-chat h2 {
@@ -238,12 +244,15 @@ input:focus-visible {
 }
 
 .mensagens {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px 4px;
+  padding: 12px 8px;
+  overscroll-behavior: contain;
 }
 
 .mensagem {
@@ -318,4 +327,30 @@ input:focus-visible {
   .mensagem {
     max-width: 88%;
   }
+}
+
+
+/* ---------- INDICADOR DE DIGITACAO ---------- */
+.indicador-digitando {
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--azul-claro);
+  transition: opacity 0.15s ease, height 0.15s ease, padding 0.15s ease;
+}
+.indicador-digitando.ativo {
+  height: 30px;
+  opacity: 1;
+  padding: 4px 4px 2px;
+}
+.form-envio { flex-shrink: 0; }
+@media (max-width: 720px) {
+  .tela-principal { height: 100dvh; }
+  .conteudo { min-height: 0; }
+  .painel-chat { min-height: 0; }
 }

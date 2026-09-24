@@ -12,38 +12,25 @@
       <h1>CHAT DA TURMA</h1>
       <button id="botao-sair" class="botao-sair" type="button">SAIR</button>
     </header>
-
     <div class="conteudo">
       <aside class="painel-participantes">
         <h2>Quem está na turma?</h2>
         <div id="lista-participantes" class="lista-participantes"></div>
       </aside>
-
       <section class="painel-chat">
-        <p id="aviso-selecione" class="aviso-selecione">
-          Escolha uma pessoa na lista ao lado para conversar.
-        </p>
-
+        <p id="aviso-selecione" class="aviso-selecione">Escolha uma pessoa na lista ao lado para conversar.</p>
         <div id="area-chat" class="area-chat" style="display: none">
           <h2 id="titulo-conversa">Conversando com...</h2>
           <div id="mensagens" class="mensagens"></div>
-
+          <div id="indicador-digitando" class="indicador-digitando" aria-live="polite"></div>
           <form id="form-envio" class="form-envio">
-            <input
-              type="text"
-              id="campo-mensagem"
-              placeholder="Digite sua mensagem..."
-              autocomplete="off"
-              maxlength="500"
-              required
-            />
+            <input type="text" id="campo-mensagem" placeholder="Digite sua mensagem..." autocomplete="off" maxlength="500" required />
             <button type="submit">ENVIAR</button>
           </form>
         </div>
       </section>
     </div>
   </div>
-
   <script type="module" src="app.js"></script>
 </body>
 </html>
