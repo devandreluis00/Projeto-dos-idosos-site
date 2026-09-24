@@ -16,8 +16,15 @@
   box-sizing: border-box;
 }
 
+html,
 body {
+  width: 100%;
+  height: 100%;
   margin: 0;
+}
+
+body {
+  overflow: hidden;
   font-family: "Segoe UI", Arial, sans-serif;
   font-size: 20px;
   color: var(--texto);
@@ -110,8 +117,9 @@ input:focus-visible {
 /* ---------- TELA PRINCIPAL ---------- */
 
 .tela-principal {
+  width: 100%;
   height: 100vh;
-  min-height: 0;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -146,7 +154,7 @@ input:focus-visible {
 }
 
 .conteudo {
-  flex: 1 1 auto;
+  flex: 1;
   display: flex;
   min-height: 0;
   overflow: hidden;
@@ -214,7 +222,7 @@ input:focus-visible {
 }
 
 .painel-chat {
-  flex: 1 1 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -231,7 +239,7 @@ input:focus-visible {
 }
 
 .area-chat {
-  flex: 1 1 auto;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -244,15 +252,14 @@ input:focus-visible {
 }
 
 .mensagens {
-  flex: 1 1 auto;
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px 8px;
-  overscroll-behavior: contain;
+  padding: 12px 4px;
 }
 
 .mensagem {
@@ -310,6 +317,52 @@ input:focus-visible {
   background: var(--azul-claro);
 }
 
+
+/* ---------- INDICADOR DE DIGITAÇÃO ---------- */
+
+.indicador-digitando {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: -4px 0 4px;
+  padding-left: 4px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.indicador-digitando[hidden] {
+  display: none;
+}
+
+.ponto-digitando {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #777;
+  animation: pontoDigitando 1.2s infinite ease-in-out;
+}
+
+.ponto-digitando:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.ponto-digitando:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes pontoDigitando {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
 /* ---------- RESPONSIVO (CELULAR) ---------- */
 
 @media (max-width: 720px) {
@@ -327,30 +380,4 @@ input:focus-visible {
   .mensagem {
     max-width: 88%;
   }
-}
-
-
-/* ---------- INDICADOR DE DIGITACAO ---------- */
-.indicador-digitando {
-  height: 0;
-  min-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  padding: 0;
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--azul-claro);
-  transition: opacity 0.15s ease, height 0.15s ease, padding 0.15s ease;
-}
-.indicador-digitando.ativo {
-  height: 30px;
-  opacity: 1;
-  padding: 4px 4px 2px;
-}
-.form-envio { flex-shrink: 0; }
-@media (max-width: 720px) {
-  .tela-principal { height: 100dvh; }
-  .conteudo { min-height: 0; }
-  .painel-chat { min-height: 0; }
 }

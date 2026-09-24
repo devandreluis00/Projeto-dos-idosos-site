@@ -1,4 +1,5 @@
 // js/app.js
+import { auth } from "./firebase-config.js";
 import { observarLogin, sairDoChat, nomeSalvo } from "./auth.js";
 import { configurarPresenca, observarParticipantes } from "./users.js";
 import {
@@ -7,7 +8,8 @@ import {
   enviarMensagem,
   observarMensagens,
   definirDigitando,
-  observarDigitando,
+  pararDigitando,
+  observarDigitacao,
 } from "./chat.js";
 
 const listaParticipantesEl = document.getElementById("lista-participantes");
@@ -19,20 +21,22 @@ const botaoSairEl = document.getElementById("botao-sair");
 const avisoSelecioneEl = document.getElementById("aviso-selecione");
 const areaChatEl = document.getElementById("area-chat");
 const indicadorDigitandoEl = document.getElementById("indicador-digitando");
+const textoDigitandoEl = document.getElementById("texto-digitando");
 
 let meuUid = null;
 let meuNome = "";
-let pessoaSelecionada = null;
+let pessoaSelecionada = null; // { uid, name }
 let pararDeObservarMensagens = null;
-let pararDeObservarDigitando = null;
-let timerDigitando = null;
+let pararDeObservarDigitacao = null;
 let conversaAtualId = null;
+let temporizadorDigitacao = null;
 
 observarLogin((usuario) => {
   if (!usuario) {
     window.location.href = "index.html";
     return;
   }
+
   meuUid = usuario.uid;
   meuNome = nomeSalvo();
   configurarPresenca(meuUid);
@@ -41,6 +45,7 @@ observarLogin((usuario) => {
 
 function renderizarParticipantes(lista) {
   listaParticipantesEl.innerHTML = "";
+
   if (lista.length === 0) {
     const vazio = document.createElement("p");
     vazio.className = "aviso-vazio";
@@ -53,41 +58,76 @@ function renderizarParticipantes(lista) {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "item-participante";
-    if (pessoaSelecionada?.uid === pessoa.uid) item.classList.add("selecionado");
+
+    if (pessoaSelecionada && pessoaSelecionada.uid === pessoa.uid) {
+      item.classList.add("selecionado");
+    }
+
     item.innerHTML = `
       <span class="bolinha ${pessoa.online ? "online" : "offline"}"></span>
       <span class="nome-participante">${escaparTexto(pessoa.name)}</span>
     `;
-    item.addEventListener("click", (evento) => selecionarConversa(pessoa, evento.currentTarget));
+
+    item.addEventListener("click", (evento) =>
+      selecionarConversa(pessoa, evento.currentTarget)
+    );
+
     listaParticipantesEl.appendChild(item);
   });
 }
 
 async function selecionarConversa(pessoa, elementoClicado) {
+  // Para a indicação de digitação da conversa anterior.
+  if (conversaAtualId && meuUid) {
+    await pararDigitando(conversaAtualId, meuUid);
+  }
+
+  if (temporizadorDigitacao) {
+    clearTimeout(temporizadorDigitacao);
+    temporizadorDigitacao = null;
+  }
+
   pessoaSelecionada = pessoa;
+  conversaAtualId = idDaConversa(meuUid, pessoa.uid);
+
   tituloConversaEl.textContent = `Conversando com ${pessoa.name}`;
   avisoSelecioneEl.style.display = "none";
   areaChatEl.style.display = "flex";
+  esconderIndicadorDigitando();
 
-  document.querySelectorAll(".item-participante").forEach(el => el.classList.remove("selecionado"));
+  document.querySelectorAll(".item-participante").forEach((el) => {
+    el.classList.remove("selecionado");
+  });
+
   if (elementoClicado) elementoClicado.classList.add("selecionado");
 
-  if (pararDeObservarMensagens) pararDeObservarMensagens();
-  if (pararDeObservarDigitando) pararDeObservarDigitando();
-  pararTimerDigitando();
-  mostrarDigitando(false);
-
-  conversaAtualId = idDaConversa(meuUid, pessoa.uid);
   await garantirConversa(conversaAtualId, meuUid, pessoa.uid);
 
-  mensagensEl.innerHTML = "";
-  pararDeObservarMensagens = observarMensagens(conversaAtualId, renderizarMensagens);
-  pararDeObservarDigitando = observarDigitando(conversaAtualId, meuUid, mostrarDigitando);
+  if (pararDeObservarMensagens) {
+    pararDeObservarMensagens();
+  }
+
+  if (pararDeObservarDigitacao) {
+    pararDeObservarDigitacao();
+  }
+
+  pararDeObservarMensagens = observarMensagens(
+    conversaAtualId,
+    renderizarMensagens
+  );
+
+  pararDeObservarDigitacao = observarDigitacao(
+    conversaAtualId,
+    meuUid,
+    mostrarIndicadorDigitando
+  );
+
   campoMensagemEl.focus();
 }
 
 function renderizarMensagens(lista) {
   mensagensEl.innerHTML = "";
+
   lista.forEach((msg) => {
     const bolha = document.createElement("div");
     const eMinha = msg.senderId === meuUid;
@@ -95,7 +135,9 @@ function renderizarMensagens(lista) {
 
     const autor = document.createElement("div");
     autor.className = "autor-mensagem";
-    autor.textContent = eMinha ? "Você" : (pessoaSelecionada?.name || "");
+    autor.textContent = eMinha
+      ? "Você"
+      : (pessoaSelecionada ? pessoaSelecionada.name : "");
 
     const texto = document.createElement("div");
     texto.className = "texto-mensagem";
@@ -106,48 +148,45 @@ function renderizarMensagens(lista) {
     mensagensEl.appendChild(bolha);
   });
 
+  // Mantém o scroll sempre no final da conversa.
   requestAnimationFrame(() => {
     mensagensEl.scrollTop = mensagensEl.scrollHeight;
   });
 }
 
-function mostrarDigitando(digitando) {
-  if (!indicadorDigitandoEl) return;
-  indicadorDigitandoEl.textContent = digitando
-    ? `${pessoaSelecionada?.name || "A pessoa"} está digitando...`
-    : "";
-  indicadorDigitandoEl.classList.toggle("ativo", digitando);
-}
+campoMensagemEl.addEventListener("input", async () => {
+  if (!pessoaSelecionada || !conversaAtualId) return;
 
-function pararTimerDigitando() {
-  if (timerDigitando) {
-    clearTimeout(timerDigitando);
-    timerDigitando = null;
-  }
-}
+  const temTexto = campoMensagemEl.value.trim().length > 0;
 
-async function atualizarStatusDigitando() {
-  if (!conversaAtualId || !meuUid) return;
-  pararTimerDigitando();
-
-  if (!campoMensagemEl.value.trim()) {
-    await definirDigitando(conversaAtualId, meuUid, false);
+  if (!temTexto) {
+    await pararDigitando(conversaAtualId, meuUid);
     return;
   }
 
-  await definirDigitando(conversaAtualId, meuUid, true);
-  timerDigitando = setTimeout(async () => {
+  await definirDigitando(conversaAtualId, meuUid, meuNome);
+
+  if (temporizadorDigitacao) {
+    clearTimeout(temporizadorDigitacao);
+  }
+
+  // Se a pessoa parar de digitar por 1,5 segundo,
+  // o indicador desaparece para o outro usuário.
+  temporizadorDigitacao = setTimeout(async () => {
     if (conversaAtualId && meuUid) {
-      await definirDigitando(conversaAtualId, meuUid, false);
+      await pararDigitando(conversaAtualId, meuUid);
     }
   }, 1500);
-}
-
-campoMensagemEl.addEventListener("input", atualizarStatusDigitando);
+});
 
 campoMensagemEl.addEventListener("blur", async () => {
-  pararTimerDigitando();
-  if (conversaAtualId && meuUid) await definirDigitando(conversaAtualId, meuUid, false);
+  if (!pessoaSelecionada || !conversaAtualId) return;
+
+  // Não remove imediatamente se ainda houver texto:
+  // o temporizador controla o desaparecimento natural.
+  if (!campoMensagemEl.value.trim()) {
+    await pararDigitando(conversaAtualId, meuUid);
+  }
 });
 
 formEnvioEl.addEventListener("submit", async (evento) => {
@@ -157,25 +196,47 @@ formEnvioEl.addEventListener("submit", async (evento) => {
   const texto = campoMensagemEl.value.trim();
   if (!texto) return;
 
-  pararTimerDigitando();
-  await definirDigitando(conversaAtualId, meuUid, false);
   campoMensagemEl.value = "";
 
-  try {
-    await enviarMensagem(conversaAtualId, meuUid, pessoaSelecionada.uid, texto);
-  } catch (erro) {
-    console.error("Erro ao enviar mensagem:", erro);
-    campoMensagemEl.value = texto;
+  if (temporizadorDigitacao) {
+    clearTimeout(temporizadorDigitacao);
+    temporizadorDigitacao = null;
   }
+
+  await pararDigitando(conversaAtualId, meuUid);
+
+  await enviarMensagem(
+    conversaAtualId,
+    meuUid,
+    pessoaSelecionada.uid,
+    texto
+  );
+
   campoMensagemEl.focus();
 });
 
 botaoSairEl.addEventListener("click", async () => {
-  pararTimerDigitando();
-  if (conversaAtualId && meuUid) await definirDigitando(conversaAtualId, meuUid, false);
+  if (conversaAtualId && meuUid) {
+    await pararDigitando(conversaAtualId, meuUid);
+  }
+
   await sairDoChat();
   window.location.href = "index.html";
 });
+
+function mostrarIndicadorDigitando(nome) {
+  if (!nome) {
+    esconderIndicadorDigitando();
+    return;
+  }
+
+  textoDigitandoEl.textContent = `${nome} está digitando...`;
+  indicadorDigitandoEl.hidden = false;
+}
+
+function esconderIndicadorDigitando() {
+  indicadorDigitandoEl.hidden = true;
+}
 
 function escaparTexto(texto) {
   const div = document.createElement("div");
