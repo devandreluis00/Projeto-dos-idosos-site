@@ -1,87 +1,101 @@
-// js/chat.js
 import { db } from "./firebase-config.js";
 import {
-  ref,
-  push,
-  onValue,
-  set,
-  remove,
-  onDisconnect,
-  serverTimestamp,
+  ref, push, onValue, set, remove, onDisconnect, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
 
-// Gera sempre o mesmo ID para a conversa entre dois UIDs,
-// não importa quem inicia a conversa.
 export function idDaConversa(uidA, uidB) {
   return [uidA, uidB].sort().join("_");
 }
 
-// Garante que o registro de participantes da conversa existe.
 export async function garantirConversa(conversationId, uidA, uidB) {
   await set(ref(db, `conversations/${conversationId}/participants`), {
     [uidA]: true,
-    [uidB]: true,
+    [uidB]: true
   });
 }
 
-// Envia uma mensagem de texto.
 export async function enviarMensagem(conversationId, senderId, receiverId, texto) {
   const textoLimpo = (texto || "").trim();
   if (!textoLimpo) return;
 
-  const mensagensRef = ref(db, `conversations/${conversationId}/messages`);
-  await push(mensagensRef, {
+  await push(ref(db, `conversations/${conversationId}/messages`), {
     senderId,
     receiverId,
     text: textoLimpo,
-    createdAt: serverTimestamp(),
+    createdAt: serverTimestamp()
   });
 }
 
-// Observa as mensagens de uma conversa em tempo real.
-// callback recebe um array de mensagens ordenadas por data de criação.
 export function observarMensagens(conversationId, callback) {
-  const mensagensRef = ref(db, `conversations/${conversationId}/messages`);
-  return onValue(mensagensRef, (snapshot) => {
+  return onValue(ref(db, `conversations/${conversationId}/messages`), (snapshot) => {
     const dados = snapshot.val() || {};
-    const lista = Object.values(dados).sort(
+    callback(
+      Object.values(dados).sort(
+        (a, b) => (a.createdAt || 0) - (b.createdAt || 0)
+      )
+    );
+  });
+}
+
+export function observarResumoConversa(conversationId, meuUid, callback) {
+  const mensagensRef = ref(db, `conversations/${conversationId}/messages`);
+  const leituraRef = ref(db, `conversations/${conversationId}/reads/${meuUid}`);
+
+  let mensagens = {};
+  let readAt = 0;
+
+  const emitir = () => {
+    const lista = Object.values(mensagens).sort(
       (a, b) => (a.createdAt || 0) - (b.createdAt || 0)
     );
-    callback(lista);
+    const ultima = lista.length ? lista[lista.length - 1] : null;
+    const unreadCount = lista.filter(
+      (m) => m.senderId !== meuUid && Number(m.createdAt || 0) > Number(readAt || 0)
+    ).length;
+
+    callback({ lastMessage: ultima, unreadCount });
+  };
+
+  const stopMessages = onValue(mensagensRef, (s) => {
+    mensagens = s.val() || {};
+    emitir();
   });
+
+  const stopReads = onValue(leituraRef, (s) => {
+    readAt = Number(s.val() || 0);
+    emitir();
+  });
+
+  return () => {
+    stopMessages();
+    stopReads();
+  };
 }
 
-// Marca o usuário como digitando e remove automaticamente o estado
-// caso a conexão seja perdida.
+export async function marcarConversaComoLida(conversationId, uid) {
+  await set(ref(db, `conversations/${conversationId}/reads/${uid}`), Date.now());
+}
+
 export async function definirDigitando(conversationId, uid, nome) {
-  const digitandoRef = ref(db, `conversations/${conversationId}/typing/${uid}`);
-
-  await onDisconnect(digitandoRef).remove();
-
-  await set(digitandoRef, {
+  const typingRef = ref(db, `conversations/${conversationId}/typing/${uid}`);
+  await onDisconnect(typingRef).remove();
+  await set(typingRef, {
     typing: true,
     name: nome || "Usuário",
-    updatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   });
 }
 
-// Remove o indicador de digitação do usuário.
 export async function pararDigitando(conversationId, uid) {
   await remove(ref(db, `conversations/${conversationId}/typing/${uid}`));
 }
 
-// Observa se outra pessoa da conversa está digitando.
-// Retorna o nome da primeira pessoa encontrada.
 export function observarDigitacao(conversationId, meuUid, callback) {
-  const digitandoRef = ref(db, `conversations/${conversationId}/typing`);
-
-  return onValue(digitandoRef, (snapshot) => {
+  return onValue(ref(db, `conversations/${conversationId}/typing`), (snapshot) => {
     const dados = snapshot.val() || {};
-
     const outro = Object.entries(dados).find(
-      ([uid, estado]) => uid !== meuUid && estado && estado.typing === true
+      ([uid, estado]) => uid !== meuUid && estado?.typing === true
     );
-
     callback(outro ? (outro[1].name || "A pessoa") : null);
   });
 }

@@ -6,31 +6,25 @@
   <title>Chat da Turma</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-  <main class="tela-entrada">
-    <div class="cartao-entrada">
-      <h1>CHAT DA TURMA</h1>
-      <p class="subtitulo">Bem-vindo!</p>
-      <p class="instrucao">Digite seu nome para entrar:</p>
+<body class="login-page">
+  <main class="login-screen">
+    <section class="login-card">
+      <div class="login-logo">💬</div>
+      <h1>Chat da Turma</h1>
+      <p>Digite seu nome para entrar na conversa.</p>
 
       <form id="form-entrada">
-        <input
-          type="text"
-          id="campo-nome"
-          placeholder="Seu nome"
-          autocomplete="off"
-          maxlength="40"
-          required
-        />
-        <button type="submit" id="botao-entrar">ENTRAR NO CHAT</button>
+        <input id="campo-nome" type="text" placeholder="Seu nome"
+               autocomplete="off" maxlength="40" required />
+        <button id="botao-entrar" type="submit">Entrar no chat</button>
       </form>
 
-      <p id="mensagem-erro" class="mensagem-erro" role="alert"></p>
-    </div>
+      <p id="mensagem-erro" class="login-error" role="alert"></p>
+    </section>
   </main>
 
   <script type="module">
-    import { entrarNoChat } from "./auth.js";
+    import { entrarNoChat } from "./js/auth.js";
 
     const form = document.getElementById("form-entrada");
     const campoNome = document.getElementById("campo-nome");
@@ -41,7 +35,7 @@
       evento.preventDefault();
       mensagemErro.textContent = "";
       botaoEntrar.disabled = true;
-      botaoEntrar.textContent = "ENTRANDO...";
+      botaoEntrar.textContent = "Entrando...";
 
       try {
         await entrarNoChat(campoNome.value);
@@ -49,9 +43,9 @@
       } catch (erro) {
         console.error(erro);
         mensagemErro.textContent =
-          "Não foi possível entrar. Verifique sua internet e tente novamente.";
+          "Não foi possível entrar. Verifique a conexão e o Firebase.";
         botaoEntrar.disabled = false;
-        botaoEntrar.textContent = "ENTRAR NO CHAT";
+        botaoEntrar.textContent = "Entrar no chat";
       }
     });
   </script>

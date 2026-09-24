@@ -1,4 +1,4 @@
-// js/app.js
+import { auth } from "./firebase-config.js";
 import { observarLogin, sairDoChat, nomeSalvo } from "./auth.js";
 import { configurarPresenca, observarParticipantes } from "./users.js";
 import {
@@ -6,33 +6,40 @@ import {
   garantirConversa,
   enviarMensagem,
   observarMensagens,
+  observarResumoConversa,
+  marcarConversaComoLida,
   definirDigitando,
   pararDigitando,
-  observarDigitacao,
+  observarDigitacao
 } from "./chat.js";
 
-const listaParticipantesEl = document.getElementById("lista-participantes");
-const tituloConversaEl = document.getElementById("titulo-conversa");
+const listaEl = document.getElementById("lista-participantes");
+const tituloEl = document.getElementById("titulo-conversa");
 const mensagensEl = document.getElementById("mensagens");
-const formEnvioEl = document.getElementById("form-envio");
-const campoMensagemEl = document.getElementById("campo-mensagem");
-const avisoSelecioneEl = document.getElementById("aviso-selecione");
-const areaChatEl = document.getElementById("area-chat");
-const indicadorDigitandoEl = document.getElementById("indicador-digitando");
-const textoDigitandoEl = document.getElementById("texto-digitando");
-const avatarContatoEl = document.getElementById("avatar-contato");
+const formEl = document.getElementById("form-envio");
+const campoEl = document.getElementById("campo-mensagem");
+const sairEl = document.getElementById("botao-sair");
+const avisoEl = document.getElementById("aviso-selecione");
+const areaEl = document.getElementById("area-chat");
+const pesquisaEl = document.getElementById("pesquisa-participantes");
 const statusContatoEl = document.getElementById("status-contato");
 const statusConversaEl = document.getElementById("status-conversa");
-const pesquisaEl = document.getElementById("pesquisa-participantes");
+const avatarContatoEl = document.getElementById("avatar-contato");
+const indicadorEl = document.getElementById("indicador-digitando");
+const textoDigitandoEl = document.getElementById("texto-digitando");
+const avatarMeEl = document.getElementById("avatar-me");
+const nomeMeEl = document.getElementById("nome-me");
 
 let meuUid = null;
 let meuNome = "";
 let pessoaSelecionada = null;
-let pararDeObservarMensagens = null;
-let pararDeObservarDigitacao = null;
 let conversaAtualId = null;
-let temporizadorDigitacao = null;
-let ultimaQuantidadeMensagens = 0;
+let stopMessages = null;
+let stopTyping = null;
+let typingTimer = null;
+let participantes = [];
+const resumos = new Map();
+const stopResumo = new Map();
 
 observarLogin((usuario) => {
   if (!usuario) {
@@ -42,150 +49,182 @@ observarLogin((usuario) => {
 
   meuUid = usuario.uid;
   meuNome = nomeSalvo() || "Você";
-
-  const avatarMe = document.getElementById("avatar-me");
-  avatarMe.textContent = iniciais(meuNome);
+  avatarMeEl.textContent = iniciais(meuNome);
+  nomeMeEl.textContent = meuNome;
 
   configurarPresenca(meuUid);
   observarParticipantes(meuUid, renderizarParticipantes);
 });
 
 function renderizarParticipantes(lista) {
-  const filtro = pesquisaEl.value.trim().toLowerCase();
-  listaParticipantesEl.innerHTML = "";
+  participantes = lista || [];
+  sincronizarResumos();
+  renderizarLista();
+}
 
-  if (pessoaSelecionada) {
-    const atualizada = lista.find((p) => p.uid === pessoaSelecionada.uid);
-    if (atualizada) {
-      pessoaSelecionada = atualizada;
-      atualizarStatusConversa(atualizada);
+function sincronizarResumos() {
+  const ids = new Set(participantes.map((p) => p.uid));
+
+  for (const [uid, stop] of stopResumo) {
+    if (!ids.has(uid)) {
+      stop();
+      stopResumo.delete(uid);
+      resumos.delete(uid);
     }
   }
 
-  const filtrada = lista.filter((pessoa) =>
-    !filtro || pessoa.name.toLowerCase().includes(filtro)
-  );
+  participantes.forEach((pessoa) => {
+    if (stopResumo.has(pessoa.uid)) return;
 
-  if (filtrada.length === 0) {
+    const conversationId = idDaConversa(meuUid, pessoa.uid);
+    const stop = observarResumoConversa(conversationId, meuUid, (resumo) => {
+      resumos.set(pessoa.uid, resumo);
+      renderizarLista();
+    });
+    stopResumo.set(pessoa.uid, stop);
+  });
+}
+
+function renderizarLista() {
+  const filtro = pesquisaEl.value.trim().toLowerCase();
+
+  const lista = [...participantes]
+    .filter((p) => !filtro || p.name.toLowerCase().includes(filtro))
+    .sort((a, b) => {
+      const ta = Number(resumos.get(a.uid)?.lastMessage?.createdAt || 0);
+      const tb = Number(resumos.get(b.uid)?.lastMessage?.createdAt || 0);
+      return tb - ta || a.name.localeCompare(b.name, "pt-BR");
+    });
+
+  listaEl.innerHTML = "";
+
+  if (!lista.length) {
     const vazio = document.createElement("div");
     vazio.className = "empty-list";
     vazio.textContent = filtro
       ? "Nenhuma conversa encontrada."
-      : "Ainda não há mais ninguém na turma.";
-    listaParticipantesEl.appendChild(vazio);
+      : "Ainda não há outras pessoas online ou cadastradas.";
+    listaEl.appendChild(vazio);
     return;
   }
 
-  filtrada.forEach((pessoa) => {
+  lista.forEach((pessoa) => {
+    const resumo = resumos.get(pessoa.uid);
+    const ultima = resumo?.lastMessage;
+    const unread = Number(resumo?.unreadCount || 0);
+
     const item = document.createElement("button");
     item.type = "button";
     item.className = "conversation-item";
-
-    if (pessoaSelecionada && pessoaSelecionada.uid === pessoa.uid) {
-      item.classList.add("selected");
-    }
-
-    item.dataset.nome = pessoa.name.toLowerCase();
+    if (pessoaSelecionada?.uid === pessoa.uid) item.classList.add("selected");
 
     const avatar = document.createElement("span");
-    avatar.className = "avatar conversation-avatar";
+    avatar.className = "avatar";
     avatar.textContent = iniciais(pessoa.name);
 
-    const content = document.createElement("span");
-    content.className = "conversation-content";
+    const corpo = document.createElement("span");
+    corpo.className = "conversation-content";
 
-    const top = document.createElement("span");
-    top.className = "conversation-top";
+    const topo = document.createElement("span");
+    topo.className = "conversation-top";
 
     const nome = document.createElement("strong");
     nome.textContent = pessoa.name;
 
-    const horario = document.createElement("time");
-    horario.textContent = "";
+    const hora = document.createElement("time");
+    hora.textContent = ultima ? formatarHora(ultima.createdAt) : "";
+    if (unread) hora.className = "has-unread";
 
-    top.appendChild(nome);
-    top.appendChild(horario);
+    topo.append(nome, hora);
+
+    const baixo = document.createElement("span");
+    baixo.className = "conversation-preview-row";
 
     const preview = document.createElement("span");
     preview.className = "conversation-preview";
+    if (unread) preview.classList.add("unread");
 
-    const statusDot = document.createElement("span");
-    statusDot.className = `status-dot ${pessoa.online ? "online" : "offline"}`;
+    if (ultima) {
+      if (ultima.senderId === meuUid) {
+        const checks = document.createElement("span");
+        checks.className = "preview-checks";
+        checks.textContent = "✓✓";
+        preview.appendChild(checks);
+      }
+      const texto = document.createElement("span");
+      texto.textContent = ultima.senderId === meuUid
+        ? `Você: ${ultima.text}`
+        : ultima.text;
+      preview.appendChild(texto);
+    } else {
+      const dot = document.createElement("span");
+      dot.className = `status-dot ${pessoa.online ? "online" : "offline"}`;
+      const status = document.createElement("span");
+      status.textContent = pessoa.online ? "online" : "offline";
+      preview.append(dot, status);
+    }
 
-    const previewText = document.createElement("span");
-    previewText.textContent = pessoa.online ? "online" : "offline";
+    baixo.appendChild(preview);
 
-    preview.appendChild(statusDot);
-    preview.appendChild(previewText);
+    if (unread) {
+      const badge = document.createElement("span");
+      badge.className = "unread-badge";
+      badge.textContent = unread > 99 ? "99+" : String(unread);
+      baixo.appendChild(badge);
+    }
 
-    content.appendChild(top);
-    content.appendChild(preview);
-
-    item.appendChild(avatar);
-    item.appendChild(content);
-
-    item.addEventListener("click", (evento) =>
-      selecionarConversa(pessoa, evento.currentTarget)
-    );
-
-    listaParticipantesEl.appendChild(item);
+    corpo.append(topo, baixo);
+    item.append(avatar, corpo);
+    item.addEventListener("click", () => selecionarConversa(pessoa));
+    listaEl.appendChild(item);
   });
 }
 
-async function selecionarConversa(pessoa, elementoClicado) {
-  if (conversaAtualId && meuUid) {
-    await pararDigitando(conversaAtualId, meuUid);
-  }
-
-  if (temporizadorDigitacao) {
-    clearTimeout(temporizadorDigitacao);
-    temporizadorDigitacao = null;
-  }
+async function selecionarConversa(pessoa) {
+  if (conversaAtualId && meuUid) await pararDigitando(conversaAtualId, meuUid);
+  clearTimeout(typingTimer);
 
   pessoaSelecionada = pessoa;
   conversaAtualId = idDaConversa(meuUid, pessoa.uid);
-  ultimaQuantidadeMensagens = 0;
 
-  tituloConversaEl.textContent = pessoa.name;
-  atualizarStatusConversa(pessoa);
+  tituloEl.textContent = pessoa.name;
+  avatarContatoEl.textContent = iniciais(pessoa.name);
+  atualizarStatus(pessoa);
 
-  avisoSelecioneEl.style.display = "none";
-  areaChatEl.style.display = "flex";
-  esconderIndicadorDigitando();
-
-  document.querySelectorAll(".conversation-item").forEach((el) => {
-    el.classList.remove("selected");
-  });
-
-  if (elementoClicado) elementoClicado.classList.add("selected");
+  avisoEl.style.display = "none";
+  areaEl.style.display = "flex";
 
   await garantirConversa(conversaAtualId, meuUid, pessoa.uid);
+  await marcarConversaComoLida(conversaAtualId, meuUid);
 
-  if (pararDeObservarMensagens) pararDeObservarMensagens();
-  if (pararDeObservarDigitacao) pararDeObservarDigitacao();
+  if (stopMessages) stopMessages();
+  if (stopTyping) stopTyping();
 
-  pararDeObservarMensagens = observarMensagens(
-    conversaAtualId,
-    renderizarMensagens
-  );
-
-  pararDeObservarDigitacao = observarDigitacao(
+  stopMessages = observarMensagens(conversaAtualId, renderizarMensagens);
+  stopTyping = observarDigitacao(
     conversaAtualId,
     meuUid,
-    mostrarIndicadorDigitando
+    (nome) => {
+      if (!nome) {
+        indicadorEl.hidden = true;
+        return;
+      }
+      textoDigitandoEl.textContent = `${nome} está digitando...`;
+      indicadorEl.hidden = false;
+    }
   );
 
-  campoMensagemEl.focus();
+  renderizarLista();
+  campoEl.focus();
 }
 
 function renderizarMensagens(lista) {
   mensagensEl.innerHTML = "";
 
   lista.forEach((msg) => {
+    const minha = msg.senderId === meuUid;
     const bolha = document.createElement("div");
-    const eMinha = msg.senderId === meuUid;
-
-    bolha.className = `message ${eMinha ? "mine" : "other"}`;
+    bolha.className = `message ${minha ? "mine" : "other"}`;
 
     const texto = document.createElement("div");
     texto.className = "message-text";
@@ -195,128 +234,75 @@ function renderizarMensagens(lista) {
     meta.className = "message-meta";
     meta.textContent = formatarHora(msg.createdAt);
 
-    if (eMinha) {
+    if (minha) {
       const checks = document.createElement("span");
       checks.className = "message-checks";
       checks.textContent = "✓✓";
       meta.appendChild(checks);
     }
 
-    bolha.appendChild(texto);
-    bolha.appendChild(meta);
+    bolha.append(texto, meta);
     mensagensEl.appendChild(bolha);
   });
 
-  const quantidadeAumentou = lista.length > ultimaQuantidadeMensagens;
-  ultimaQuantidadeMensagens = lista.length;
-
   requestAnimationFrame(() => {
-    // Mensagens novas sempre deixam a conversa no fim.
-    // Ao abrir a conversa também começamos no fim.
-    if (quantidadeAumentou || lista.length > 0) {
-      mensagensEl.scrollTop = mensagensEl.scrollHeight;
-    }
+    mensagensEl.scrollTop = mensagensEl.scrollHeight;
   });
+
+  if (conversaAtualId && meuUid) {
+    marcarConversaComoLida(conversaAtualId, meuUid).catch(() => {});
+  }
 }
 
-campoMensagemEl.addEventListener("input", async () => {
+formEl.addEventListener("submit", async (evento) => {
+  evento.preventDefault();
   if (!pessoaSelecionada || !conversaAtualId) return;
 
-  if (!campoMensagemEl.value.trim()) {
+  const texto = campoEl.value.trim();
+  if (!texto) return;
+
+  campoEl.value = "";
+  clearTimeout(typingTimer);
+  await pararDigitando(conversaAtualId, meuUid);
+  await enviarMensagem(conversaAtualId, meuUid, pessoaSelecionada.uid, texto);
+  campoEl.focus();
+});
+
+campoEl.addEventListener("input", async () => {
+  if (!pessoaSelecionada || !conversaAtualId) return;
+
+  clearTimeout(typingTimer);
+
+  if (!campoEl.value.trim()) {
     await pararDigitando(conversaAtualId, meuUid);
     return;
   }
 
   await definirDigitando(conversaAtualId, meuUid, meuNome);
 
-  clearTimeout(temporizadorDigitacao);
-
-  temporizadorDigitacao = setTimeout(async () => {
-    if (conversaAtualId && meuUid) {
-      await pararDigitando(conversaAtualId, meuUid);
-    }
+  typingTimer = setTimeout(() => {
+    pararDigitando(conversaAtualId, meuUid).catch(() => {});
   }, 1500);
 });
 
-campoMensagemEl.addEventListener("blur", async () => {
-  if (!pessoaSelecionada || !conversaAtualId) return;
-
-  if (!campoMensagemEl.value.trim()) {
-    await pararDigitando(conversaAtualId, meuUid);
-  }
+sairEl.addEventListener("click", async () => {
+  await sairDoChat();
+  window.location.href = "index.html";
 });
 
-formEnvioEl.addEventListener("submit", async (evento) => {
-  evento.preventDefault();
+pesquisaEl.addEventListener("input", renderizarLista);
 
-  if (!pessoaSelecionada || !conversaAtualId) return;
-
-  const texto = campoMensagemEl.value.trim();
-  if (!texto) return;
-
-  campoMensagemEl.value = "";
-
-  clearTimeout(temporizadorDigitacao);
-  temporizadorDigitacao = null;
-
-  await pararDigitando(conversaAtualId, meuUid);
-
-  await enviarMensagem(
-    conversaAtualId,
-    meuUid,
-    pessoaSelecionada.uid,
-    texto
-  );
-
-  campoMensagemEl.focus();
-});
-
-pesquisaEl.addEventListener("input", () => {
-  // A lista completa será atualizada pelo listener de presença.
-  // Filtramos diretamente os itens já renderizados quando possível.
-  const filtro = pesquisaEl.value.trim().toLowerCase();
-
-  document.querySelectorAll(".conversation-item").forEach((item) => {
-    item.style.display = item.dataset.nome.includes(filtro) ? "" : "flex";
-  });
-});
-
-
-function atualizarStatusConversa(pessoa) {
-  const online = Boolean(pessoa && pessoa.online);
-  const nome = pessoa?.name || "Pessoa";
-
+function atualizarStatus(pessoa) {
+  const online = Boolean(pessoa?.online);
   statusContatoEl.textContent = online ? "online" : "offline";
   statusContatoEl.className = `contact-status ${online ? "online" : "offline"}`;
-
-  if (online) {
-    statusConversaEl.textContent = `${nome} está online`;
-    statusConversaEl.className = "conversation-status-banner online";
-    statusConversaEl.hidden = false;
-  } else {
-    statusConversaEl.textContent = `${nome} está offline`;
-    statusConversaEl.className = "conversation-status-banner offline";
-    statusConversaEl.hidden = false;
-  }
-}
-
-function mostrarIndicadorDigitando(nome) {
-  if (!nome) {
-    esconderIndicadorDigitando();
-    return;
-  }
-
-  textoDigitandoEl.textContent = `${nome} está digitando...`;
-  indicadorDigitandoEl.hidden = false;
-}
-
-function esconderIndicadorDigitando() {
-  indicadorDigitandoEl.hidden = true;
+  statusConversaEl.textContent = `${pessoa?.name || "Pessoa"} está ${online ? "online" : "offline"}`;
+  statusConversaEl.className = `conversation-status-banner ${online ? "online" : "offline"}`;
+  statusConversaEl.hidden = false;
 }
 
 function iniciais(nome) {
   const partes = (nome || "?").trim().split(/\s+/).filter(Boolean);
-  if (!partes.length) return "?";
   if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
   return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
@@ -325,9 +311,8 @@ function formatarHora(timestamp) {
   if (!timestamp) return "";
   const data = new Date(timestamp);
   if (Number.isNaN(data.getTime())) return "";
-
   return data.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
-    minute: "2-digit",
+    minute: "2-digit"
   });
 }
